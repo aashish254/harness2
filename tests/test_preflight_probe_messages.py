@@ -17,7 +17,7 @@
 `preflight.check` shells out to the vendor tooling (git, gcloud, docker, a benchmark's own
 interpreter). When the subprocess itself cannot start or never answers, the issue it recorded
 named only the exception class -- "Google Application Default Credentials: FileNotFoundError;
-see README.md" -- which leaves the deployer to guess which program is missing. The two cases
+see README.md" -- which leaves the deployer to guess which program is missing. The three cases
 below are the ones an unconfigured machine actually produces.
 """
 
@@ -61,6 +61,14 @@ def _silent(argv, **_kwargs):
     raise subprocess.TimeoutExpired([str(a) for a in argv], 45)
 
 
+def _missing_cwd(argv, *, cwd=None, **_kwargs):
+    """How subprocess reports that the *directory* a probe runs in is not there: the kernel
+    names the cwd, not the program. Only the LAB probe passes a cwd."""
+    error = FileNotFoundError(2, "No such file or directory")
+    error.filename = cwd
+    raise error
+
+
 def _check(raiser):
     """Run the readiness pass with every probe command failing the way `raiser` says."""
     with ExitStack() as stack:
@@ -97,6 +105,17 @@ class ProbeFailureMessages(unittest.TestCase):
         self.assertIn("no response in 45s (git)", joined)
         self.assertIn("no response in 45s (gcloud)", joined)
         self.assertIn("no response in 45s (/venv/lab-judge/bin/python)", joined)
+
+    def test_the_os_names_the_path_it_failed_on_even_when_that_path_is_the_directory(self):
+        errors = _check(_missing_cwd)
+        joined = "\n".join(errors)
+        for error in errors:
+            self.assertNotIn("FileNotFoundError;", error)
+        # The LAB probe is the one caller that passes a cwd, so the kernel names that
+        # checkout instead of the interpreter -- which is the actionable path here.
+        self.assertIn(f"No such file or directory ({config.lab_repo()})", joined)
+        # The patch probes pass no cwd, so the command itself is named.
+        self.assertIn("No such file or directory (git)", joined)
 
 
 if __name__ == "__main__":
