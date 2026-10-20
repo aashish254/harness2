@@ -63,7 +63,8 @@ def _silent(argv, **_kwargs):
 
 def _missing_cwd(argv, *, cwd=None, **_kwargs):
     """How subprocess reports that the *directory* a probe runs in is not there: the kernel
-    names the cwd, not the program. Only the LAB probe passes a cwd."""
+    names the cwd, not the program. Two callers pass a cwd -- the LAB dependency probe and the
+    WorkBuddy runtime probe -- and a lab pass exercises the first of those."""
     error = FileNotFoundError(2, "No such file or directory")
     error.filename = cwd
     raise error
@@ -111,8 +112,8 @@ class ProbeFailureMessages(unittest.TestCase):
         joined = "\n".join(errors)
         for error in errors:
             self.assertNotIn("FileNotFoundError;", error)
-        # The LAB probe is the one caller that passes a cwd, so the kernel names that
-        # checkout instead of the interpreter -- which is the actionable path here.
+        # A probe that passes a cwd gets that directory named -- which is the actionable
+        # path here, because a missing checkout is what harness2-setup has to fetch.
         self.assertIn(f"No such file or directory ({config.lab_repo()})", joined)
         # The patch probes pass no cwd, so the command itself is named.
         self.assertIn("No such file or directory (git)", joined)
