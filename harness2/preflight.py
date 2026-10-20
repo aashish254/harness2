@@ -41,10 +41,10 @@ def check(adapter, *, judge=False) -> list[str]:
             return r.returncode == 0
         except (OSError, subprocess.TimeoutExpired) as exc:
             if isinstance(exc, subprocess.TimeoutExpired):
-                where = (exc.cmd or list(cmd))[0]
+                where = exc.cmd[0]
                 why = f"no response in {exc.timeout}s"
             else:
-                where = exc.filename or (cmd[0] if cmd else "?")
+                where = exc.filename or cmd[0]
                 why = exc.strerror or type(exc).__name__
             errors.append(f"{label}: {why} ({where}); see README.md")
             return False
